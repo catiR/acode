@@ -1,8 +1,9 @@
 __pycache__/
-localmodels/pyannote-speakerdia-3.1/
-localmodels/LVL/
-ldc-bpcsad/
-acodenv/
-tmp/
-output/
-localmodels/REAPER/
+acoustic/localmodels/pyannote-speakerdia-3.1/
+acoustic/localmodels/LVL/
+acoustic/ldc-bpcsad/
+acoustic/acodenv/
+acoustic/tmp/
+acoustic/output/
+acoustic/scripts/local/
+acoustic/localmodels/REAPER/

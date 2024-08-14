@@ -1,17 +1,18 @@
 # acode
 
-## Pipeline
+## Preprocessing
 
-Run `> pythyon3 pipeline.py`
+#### Automatic speaker diarisation + transcription pipeline
 
-- The folder defined as `original_data_dir` is expected to contain directories `PATIENTSDATA` and `CONTROLSTDATA`, which respectively contain folders `{P,C}-AudioFiles` <!-- and `{P,C}-Transcripts` -->
+- Pyannote speech activity detection, segmentation, speaker diarisation
 
-- Comment in/out calls to functions `run_diarisation()`, `run_asr()`, and `run_featurisation()`, to select which parts of the pipeline to run - ASR is extremely slow and is also not used in feature computation anyway.
+- Whisper ASR for diarised segments
 
-- Due to data protection, scripts use local (on disk) copies of several speech processing models, which you need to download. If you don't download them, but you change the local file paths to public model names like most documentation recommends, the scripts will run and possibly transmit protected clinical data to external companies' servers in violation of policy. If you're not sure what you're doing, at least comment out Whisper ASR!
+- Second-pass speech/pause detection via Wav2Vec2 forced alignment
 
+- Output transcripts compatible with Elan
 
-## Setup and requirements
+#### Setup and requirements
 
 - General python requirements: Pytorch (preferably with cuda), faster-whisper, transformers, pydub, pyannote.audio
 - Can use virtual environment and install requirements with pip.
@@ -19,7 +20,16 @@ Run `> pythyon3 pipeline.py`
 `python3 -m venv acodenv`
 `source acodenv/bin/activate`
 
-#### Diarisation
+- Due to data protection, scripts use local (on disk) copies of Whisper, Wav2vec2, and Pyannote speech processing models, which you need to download. If you don't download them, but you edit the model paths according to default package documentation, the scripts could run but transmit sensitive data to external companies' servers. Details in script.
+
+
+**Run** `> pythyon3 preprocess.py`
+
+- In `preprocess_speech()`, the defined `original_data_dir` expects the directory structure as on NextCloud. For other setups, adjust `find_nextcloud_files()`.
+
+- In `preprocess_speech()`, comment in/out calls to functions `run_diarisation()` and `run_asr()` to select which parts of the pipeline to run. Whisper ASR is quite slow, but setting `realign=True` does not add that much extra time.
+
+<!--#### Diarisation
 
 Requires both **LDC BPCSAD**, which itself depends on HTK, and **pyannote VAD + diarisation**.
 
@@ -45,7 +55,7 @@ This installation also worked:
 
 * Now the LDC executable is at `acodenv/bin/ldc-bpcsad`. Location can end up elsewhere depending on OS and virtual environment setup.
 
-- **TODO:** About pyannote models for offline use
+- **TODO:** About pyannote models for offline use 
 
 
 #### ASR
@@ -54,7 +64,7 @@ This installation also worked:
 
 #### Acode features
 
-- Install REAPER, TODO change this to Praat.
+- Install REAPER, TODO change this to Praat.-->
 
 
 
@@ -63,7 +73,6 @@ This installation also worked:
 - Use manually corrected file exported from ELAN as input to feature calculation
 - Use Praat instead of REAPER for F0 tracking
 - Documentation. For now see comments in code.
-- Command line arguments for pipeline.py
 - Add speech/articulation rate feature, phonemes or syllables per second
 - Add initial pause features, e.g. tracking Participant's pauses of at least 1 second directly following Interviewer's questions
 - Add other voice/spectral features
