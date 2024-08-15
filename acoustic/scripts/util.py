@@ -36,11 +36,71 @@ def readwav(a_f):
 		wav = signal.resample(wav, wlen)
 	return wav
 	
-	
 
 
+#filename
 def fn(file_path):
 	return os.path.splitext(os.path.basename(file_path))[0]
+
+
+
+# organise paths to original recordings + transcripts, 
+# and output of diarisations and ASR,
+# assuming they(/will) exist in a certain directory structure
+# TODO: path format not OS dependent
+def find_nextcloud_files(recording_dir = '../../Data/', output_dir="./acoustic-output/"):
+	control_prefix = os.path.join(recording_dir,'Controls/Audio/')
+	patient_prefix = os.path.join(recording_dir,'Patients/AUDIO/')
+	
+	control_wavs = glob.glob(control_prefix+'*/*.wav')
+	patient_wavs = glob.glob(patient_prefix+'*/*.wav')
+
+	
+	def _fd(file_path, prefix_dir):
+		d = os.path.relpath(os.path.dirname(file_path), prefix_dir)
+		d = d.replace('audio','')
+		return(os.path.join(d,fn(file_path)))
+		
+	try:
+		assert len(set([fn(f) for f in control_wavs])) == len(control_wavs)
+	except:
+		raise Exception("Wav files didn't have unique names. Check for duplicates, rename them if not duplicate.")
+
+	
+	# wav: audio file
+	# pya: pyannote diarisation
+	cpx,ppx = control_prefix, patient_prefix
+	files_dict = {'control' : {fn(f) : 
+			{'wav' : f, 
+			 'pya': f'{output_dir}Controls/diarisation/{_fd(f,cpx)}-PyaVad.txt',
+			 'lab': f'{output_dir}Controls/diarisation/{_fd(f,cpx)}.lab',
+			 'ldc': f'{output_dir}Controls/diarisation/{_fd(f,cpx)}-LDC.txt',
+			 'f0': f'{output_dir}Controls/features/{_fd(f,cpx)}.f0',
+			 'asrP': f'{output_dir}Controls/asr/{_fd(f,cpx)}-PyaVad-' # prefix for asr paths
+			 } 
+			for f in control_wavs },
+			'patient' : {fn(f) : 
+			{'wav' : f, 
+			 'pya': f'{output_dir}Patients/diarisation/{_fd(f,ppx)}-PyaVad.txt',
+			 'lab': f'{output_dir}Patients/diarisation/{_fd(f,ppx)}.lab',
+			 'ldc': f'{output_dir}Patients/diarisation/{_fd(f,ppx)}-LDC.txt',
+			 'f0': f'{output_dir}Patients/features/{_fd(f,ppx)}.f0',
+			 'asrP': f'{output_dir}Patients/asr/{_fd(f,ppx)}-PyaVad-'
+			 }
+			for f in patient_wavs } }
+	
+	for v in list(files_dict['control'].values()) + list(files_dict['patient'].values()):
+		dia_d = os.path.dirname(v['pya'])
+		feat_d = os.path.dirname(v['f0'])
+		asr1_d = os.path.dirname(v['asrP']).replace('/asr/', '/asr-1pass/')
+		as2p_d = os.path.dirname(v['asrP']).replace('/asr/', '/asr-2pass/')
+		for d in [dia_d, feat_d, asr1_d, as2p_d]:
+			if not os.path.exists(d):
+				print('making', d)
+				os.makedirs(d)
+
+			
+	return files_dict 
 
 
 

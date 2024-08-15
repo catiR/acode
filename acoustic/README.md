@@ -1,5 +1,11 @@
 # acode
 
+## Acoustic features
+
+- Requires: Pyannote, pydub, soundfile, plus REAPER formant tracker https://github.com/google/REAPER/
+
+**Run** `> pythyon3 preprocess.py`
+
 ## Preprocessing
 
 #### Automatic speaker diarisation + transcription pipeline
@@ -18,6 +24,7 @@
 - Can use virtual environment and install requirements with pip.
 
 `python3 -m venv acodenv`
+
 `source acodenv/bin/activate`
 
 - Due to data protection, scripts use local (on disk) copies of Whisper, Wav2vec2, and Pyannote speech processing models, which you need to download. If you don't download them, but you edit the model paths according to default package documentation, the scripts could run but transmit sensitive data to external companies' servers. Details in script.
@@ -76,5 +83,6 @@ This installation also worked:
 - Add speech/articulation rate feature, phonemes or syllables per second
 - Add initial pause features, e.g. tracking Participant's pauses of at least 1 second directly following Interviewer's questions
 - Add other voice/spectral features
+- Continuous feature representations, replace or supplement single average value per file
 
 

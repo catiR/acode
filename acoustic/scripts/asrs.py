@@ -136,7 +136,7 @@ def cleanup_segments(segments, min_pause = 0.15):
 
 def realign_w2v2(wav_file,firstpass_file,w2v2_aligner):
 
-	secondpass_file = firstpass_file.rsplit('.',1)[0]+'++w2v2F.txt'
+	secondpass_file = firstpass_file.replace('/asr-1pass/','/asr-2pass/').rsplit('.',1)[0]+'++w2v2F.txt'
 	
 	if os.path.exists(secondpass_file):
 		print(f'Second pass already done: {os.path.basename(secondpass_file)}')

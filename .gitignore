@@ -4,6 +4,8 @@ acoustic/localmodels/LVL/
 acoustic/ldc-bpcsad/
 acoustic/acodenv/
 acoustic/tmp/
-acoustic/output/
+acoustic/acoustic-output/Controls/
+acoustic/acoustic-output/Patients/
+acoustic/acoustic-output/Results/*.tsv
 acoustic/scripts/local/
 acoustic/localmodels/REAPER/

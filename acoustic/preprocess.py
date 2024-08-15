@@ -9,48 +9,6 @@ import numpy as np
 from scripts.ctcalign import aligner
 
 
-
-
-# organise paths to original recordings + transcripts, 
-# and output of diarisations and ASR,
-# assuming they(/will) exist in a certain directory structure
-# TODO: path format not OS dependent
-def find_nextcloud_files(recording_dir = '../../Data/', output_dir="./output/"):
-	control_prefix = os.path.join(recording_dir,'Controls/')
-	patient_prefix = os.path.join(recording_dir,'Patients/')
-	
-	control_wavs = glob.glob(control_prefix+'A*/*/*.wav')
-	patient_wavs = glob.glob(patient_prefix+'A*/*/*.wav')
-
-	
-	for fdir in [output_dir, f'{output_dir}diarisation',f'{output_dir}asr']:
-		if not os.path.exists(fdir):
-			os.mkdir(fdir)
-	
-	
-	# wav: audio file
-	# pya: pyannote diarisation
-	files_dict = {'control' : {fn(f) : 
-			{'wav' : f, 
-			 'pya': f'{output_dir}diarisation/{fn(f)}-PyaVad.txt',
-			 'lab': f'{output_dir}diarisation/{fn(f)}.lab',
-			 'ldc': f'{output_dir}diarisation/{fn(f)}-LDC.txt',
-			 'asrP': f'{output_dir}asr/{fn(f)}-PyaVad-' # prefix for asr paths
-			 } 
-			for f in control_wavs },
-		'patient' : {fn(f) : 
-			{'wav' : f, 
-			 'pya': f'{output_dir}diarisation/{fn(f)}-PyaVad.txt',
-			 'lab': f'{output_dir}diarisation/{fn(f)}.lab',
-			 'ldc': f'{output_dir}diarisation/{fn(f)}-LDC.txt',
-			 'asrP': f'{output_dir}asr/{fn(f)}-PyaVad-'
-			 }
-			for f in patient_wavs } }
-			
-	return files_dict 
-	
-	
-	
 	
 # initialise pyannote
 def setup_pya_vad(vad_yaml_path):
@@ -174,7 +132,7 @@ def run_asr(data_files,asr_method, realign=False):
 			print(f'ASR for {speaker}: ... {asr_method}')
 			wav = file_paths['wav']
 			segs = file_paths['pya']
-			asr_prefix = file_paths['asrP']
+			asr_prefix = file_paths['asrP'].replace('/asr/','/asr-1pass/')
 			asr_file = asr.asr_one(wav,segs,asr_prefix,asr_method,asr_models[asr_method])
 			
 			
@@ -187,7 +145,7 @@ def run_asr(data_files,asr_method, realign=False):
 # refer to comments in each pipeline function
 def preprocess_speech():
 	original_data_dir = '/home/cati/proj/acode/NextCloud/Data/'
-	save_dir = './output/'
+	save_dir = './acoustic-output/'
 	
 	asr_method = 'whisper'
 	
