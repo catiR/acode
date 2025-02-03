@@ -13,6 +13,7 @@ from pyannote.core import Segment, Timeline, Annotation
 #	files with 1 speaker per channel.
 #   in that case process each channel separately !
 def wav16mono(wav_path, export_path):
+	mds(export_path)
 	if not os.path.exists(export_path):
 		wav_data = AudioSegment.from_wav(wav_path)
 		wav_data = wav_data.set_channels(1)
@@ -28,6 +29,13 @@ def wav16mono(wav_path, export_path):
 #filename
 def fn(file_path):
 	return os.path.splitext(os.path.basename(file_path))[0]
+	
+
+# make dirs to contain an output file
+def mds(output_file):
+	if not os.path.exists(os.path.dirname(output_file)):
+		print(f'making {os.path.dirname(output_file)}')
+		os.makedirs(os.path.dirname(output_file))
 
 
 #participant type
@@ -74,7 +82,12 @@ def compile_nextcloud_files(
 		if not os.path.exists(xf):
 			xf = False
 		if xf or keep_all_audios:
-			nextcloud_files[fn(wf)] = [wf,xf or 'NOT TRANSCRIBED','control']
+			nextcloud_files[fn(wf)] = [
+					wf,
+					xf or 'NOT TRANSCRIBED',
+					'control',
+					pargroup('control',wf),
+					]
 		
 	# several patient files are nonstandard
 	# current to 19.01.2025
@@ -115,7 +128,12 @@ def compile_nextcloud_files(
 			xf = False
 			
 		if xf or keep_all_audios:
-			nextcloud_files[fn(wf)] = [wf,xf or 'NOT TRANSCRIBED','patient']
+			nextcloud_files[fn(wf)] = [
+					wf,
+					xf or 'NOT TRANSCRIBED',
+					'patient',
+					pargroup('patient',wf),
+					]
 	
 	return nextcloud_files
 
@@ -130,8 +148,7 @@ def setup_nextcloud_outputs(recording_dir = '../NextCloud/Data/', output_dir="./
 	for fid, finfo in nextcloud_files.items():
 	
 		wav = finfo[0]
-		group = finfo[2]
-		group = pargroup(group,wav)
+		group = finfo[-1]
 		
 		files_dict[finfo[2]][fid] = {
 		'wav': wav,
@@ -145,22 +162,22 @@ def setup_nextcloud_outputs(recording_dir = '../NextCloud/Data/', output_dir="./
 		'tmp-wav': os.path.join(output_dir,'tmp/',f'{fid}.wav'),
 		
 		# lab file output from ldc-bpcsad
-		'ldc-sad-lab': os.path.join(output_dir,'feats/',f'{fid}.lab'),
+		'ldc-sad-lab': os.path.join(output_dir,'feats/lab/',f'{fid}.lab'),
 		
 		# reaper formant tracks
-		'f0': os.path.join(output_dir,'feats/',f'{fid}.f0'),
+		#'f0': os.path.join(output_dir,'feats/f0/',f'{fid}.f0'),
 		
 		# syllable points
-		'syl': os.path.join(output_dir,'feats/', f'{fid}.sylls'),
+		'syl': os.path.join(output_dir,'feats/sylls/', f'{fid}.sylls'),
 		
 		# json outputs from ctc-forced-aligner
 		'gold-cfalnj': os.path.join(output_dir,'align/',f'{fid}.json'),
 		
 		# assign times from gold-cfa-align-json back to words in original transcript
-		'gold-cfaspk': os.path.join(output_dir,'diarised/', f'{fid}-cfa.txt'),
+		'gold-cfaspk': os.path.join(output_dir,'diarised/cfa/', f'{fid}.txt'),
 		
 		# combine cfa's timed diarised words with ldc-bpcsad finer pause detection
-		'gold-ldcspk': os.path.join(output_dir,'diarised/', f'{fid}-ldc.txt'),
+		'gold-ldcspk': os.path.join(output_dir,'diarised/cfa_ldc/', f'{fid}.txt'),
 		
 		}
 
@@ -241,10 +258,15 @@ def parse_transcript(gold_file):
 
 
 
-# read segments from a tsv whose first 3 columns are
+
+# - - - - - diarisation - - - - -
+
+
+# read speech segmentation from a tsv whose first 3 columns are
 # speaker_id, start_time, end_time
+#  or specify column for label if not 0
 # return pyannote annotation
-def read_segments_anno(seg_path, col=0):
+def read_diarisation(seg_path, col=0):
 	with open(seg_path, 'r') as handle:
 		segments = handle.read().splitlines()
 	segments = [l.split('\t') for l in segments]
@@ -256,7 +278,18 @@ def read_segments_anno(seg_path, col=0):
 	
 	
 
-# - - - - - diarisation - - - - -
+# save pyannote Annotation 
+# in format that can be imported to Elan
+# https://www.mpi.nl/corpus/html/elan/ch01s04s02.html#Sec_Importing_CSV_Tab-delimited_Text_Files
+def pya2eln(annot,save_path):
+    # elan requires Annotation column to import data
+    # so if you want to use speaker labels as tier names
+    # an extra empty column must be added as segment content annotation
+    eln = [f'{label}\t{segment.start}\t{segment.end}\t' for segment,track,label in annot.itertracks(yield_label=True)]
+    eln = '\n'.join(eln)
+    with open(save_path,'w') as handle:
+        handle.write(eln)
+
 
 
 # combine neighbouring ordered segments from a single speaker

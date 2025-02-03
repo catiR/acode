@@ -1,0 +1,3 @@
+[submodule "acoustic/tools/opensauce-python"]
+	path = acoustic/tools/opensauce-python
+	url = https://github.com/voicesauce/opensauce-python.git

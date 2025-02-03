@@ -1,3 +1,5 @@
 __pycache__/
-localmodels/
-
+locals/
+tools/REAPER/
+tools/findsylls.octave
+tools/pyannote*
