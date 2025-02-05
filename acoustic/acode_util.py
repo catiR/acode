@@ -47,7 +47,7 @@ def pargroup(pgroup,wavpath):
 	
 
 # get original files from paths on the specific nextcloud drive
-# ret. 'fileid' : ['AudioFile.wav', 'TranscriptFile.txt', 'ParticipantGroup']
+# ret. 'fileid' : ['AudioFile.wav', 'TranscriptFile.txt', 'Group', 'Cohort']
 # if keep_all_audios True, use audio even does not have a gold transcript
 def compile_nextcloud_files(
 		nextcloud_dir='../NextCloud/Data/',
@@ -136,62 +136,6 @@ def compile_nextcloud_files(
 					]
 	
 	return nextcloud_files
-
-
-
-# keep track of where to throw too many files i guess
-def setup_nextcloud_outputs(recording_dir = '../NextCloud/Data/', output_dir="./output/"):
-
-	nextcloud_files= compile_nextcloud_files(recording_dir)
-	
-	files_dict = {'control':{},'patient':{}}
-	for fid, finfo in nextcloud_files.items():
-	
-		wav = finfo[0]
-		group = finfo[-1]
-		
-		files_dict[finfo[2]][fid] = {
-		'wav': wav,
-		'xcp-gold': finfo[1],
-		'group': group,
-
-		# normalise txt of xcp-gold for ctc-forced-aligner
-		'gold-cfanorm': os.path.join(output_dir,'align/',f'{fid}.cfanorm'),
-		
-		# temp wav if path to 16khz mono file is required input
-		'tmp-wav': os.path.join(output_dir,'tmp/',f'{fid}.wav'),
-		
-		# lab file output from ldc-bpcsad
-		'ldc-sad-lab': os.path.join(output_dir,'feats/lab/',f'{fid}.lab'),
-		
-		# reaper formant tracks
-		#'f0': os.path.join(output_dir,'feats/f0/',f'{fid}.f0'),
-		
-		# syllable points
-		'syl': os.path.join(output_dir,'feats/sylls/', f'{fid}.sylls'),
-		
-		# json outputs from ctc-forced-aligner
-		'gold-cfalnj': os.path.join(output_dir,'align/',f'{fid}.json'),
-		
-		# assign times from gold-cfa-align-json back to words in original transcript
-		'gold-cfaspk': os.path.join(output_dir,'diarised/cfa/', f'{fid}.txt'),
-		
-		# combine cfa's timed diarised words with ldc-bpcsad finer pause detection
-		'gold-ldcspk': os.path.join(output_dir,'diarised/cfa_ldc/', f'{fid}.txt'),
-		
-		}
-
-	# make output dirs
-	rdirs = [list(f.values()) for f in files_dict['control'].values() ] + [list(f.values()) for f in files_dict['patient'].values() ] 
-	rdirs = [f for ff in rdirs for f in ff]
-	rdirs = set([os.path.dirname(rpath) for rpath in rdirs])
-
-	for rdir in rdirs:
-		if rdir and not(os.path.exists(rdir)):
-			print('making', rdir)
-			os.makedirs(rdir)
-
-	return files_dict
 
 
 

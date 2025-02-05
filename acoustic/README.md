@@ -1,17 +1,5 @@
 # acode
 
-## Forced alignment to expert (human) transcriptions
-
-- `> pythyon3 acode_align.py`
-
-- Require ctc-forced-aligner (icelandic adaptation) https://github.com/catiR/ctc-forced-aligner
-
-- Optionally recombine forced alignments with LDC speech activity detector for better pause detection. Also requires pydub, Pyannote.
-
-- Output transcripts compatible with ELAN.
-
-- Output is done and provided on project drive.
-
 ## Acoustic features
 
 #### Basic feature extraction
@@ -20,25 +8,39 @@
 
 - see comments in script
 
-- Uses audio files plus Pyannote, pydub, praat and/or REAPER formant tracker https://github.com/google/REAPER/ optionally findsylls.octave from https://languagelog.ldc.upenn.edu/nll/?p=46144
-
-- Default expects tools + models (reaper, pyannote diarisation, etc) in `./tools`
+- Uses audio files plus Pyannote, pydub, ldc-bpcsad, praat and/or REAPER formant tracker https://github.com/google/REAPER/ optionally findsylls.octave from https://languagelog.ldc.upenn.edu/nll/?p=46144
 
 - Requires opensauce-python, https://github.com/voicesauce/opensauce-python 
     - available if you clone this repo with submodules, otherwise add it to `tools`
-    - VoiceSauce (opensauce) requires at least one of Reaper, Praat, and Snack. `extract_voicesauce.py` is configured for Reaper and/or Praat.
+    - VoiceSauce (opensauce) requires at least one of Reaper, Praat, and Snack. `extract_acoustic.py` is configured for Reaper and/or Praat.
     - Follow opensauce readme to make sure opensauce can find reaper and praat installations. Recommended to install standalone (C) Reaper in `tools`, not use pyreaper.
-    - This is likely temporary to be replaced by something else like parselmouth
+    - May be temporary to be replaced by something else like parselmouth
+    
+
+#### Forced alignment to expert (human) transcriptions
+
+- `> pythyon3 acode_align.py`
+
+- Require ctc-forced-aligner (icelandic adaptation) https://github.com/catiR/ctc-forced-aligner
+    - in development, adaptation may have bad choices need fixing
+
+- Optionally recombine forced alignments with Pyannote and/or LDC speech activity detector for better pause detection. Also requires pydub, Pyannote.
+
+- Output transcripts compatible with ELAN.
+
+- Output is done and provided on project drive.
+
 
 #### Derived feature calculation
 
 - `> pythyon3 acode_acoustic.py`
 
-- Uses previously extracted acoustic features, plus diarised forced alignments (timed transcripts, tsv format compatible with ELAN).
+- Uses previously extracted acoustic features, plus diarisations (timed Pyannote diarisation speaker labels or force alignment transcripts, tsv format compatible with ELAN).
 
 - Produces acoustic features compatible with https://github.com/antonkarl/acode/tree/main/featureExtraction to use together as input to classification
 
 - See comments
+
 
 
 #### Corpus management

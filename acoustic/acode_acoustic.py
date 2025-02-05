@@ -27,24 +27,33 @@ def read_voicesauce_pitch(pitch_file):
 # Nevler 2017:
 # " Silent pauses were excluded from analysis if they were at the beginning
 #   or end of the audio or immediately following interviewer prompting."
-def compile_speaker_segments(pya, main_speaker = 'V'):
+# 
+# 05.02.2025 <--sunghye "We should also count everything after 
+#		the interviewer talks as participant speech/non-speech, 
+#		but that's not true of the time that happens between participant 
+#		speech and interviewer speech."  
+#		--> set i2p =True to include pause btw Interviewer to Participant
+def compile_speaker_segments(pya, main_speaker = 'V', ignore = 'X', i2p=True):
 
 	if not main_speaker:
 		# usually but not always finds the right person
 		# so try not to use main_speaker=None
 		main_speaker = pya.chart()[0][0]
 		
+	# remove nonspeech tier
+	pya = pya.subset([ignore],invert=True)
+	
 	speeches = []
-	pauses = []   
+	pauses = []
 	seg_ends = [(s.end, l) for s,t,l in pya.itertracks(yield_label=True)]
 	seg_ends =  sorted(seg_ends, key=lambda x: x[0])
 	
 	for speaking,track,label in pya.itertracks(yield_label=True):
 		if label==main_speaker:
-			if speeches: # check preceding pause if this isn't the first segment
+			if speeches:
 				past_turns = [(e,l) for e,l in seg_ends if e<= speaking.start]
 				last_ended_turn = past_turns[-1]
-				if last_ended_turn[1] == main_speaker:
+				if i2p or last_ended_turn[1] == main_speaker:
 					pause_dur = speaking.start - last_ended_turn[0]
 					pauses.append(pause_dur)
 			speeches.append(speaking)
@@ -171,6 +180,8 @@ def compile_acode_featurisation(segment_dir,f0_dir,original_corpus_dir,save_file
 
 	original_files = compile_nextcloud_files(original_corpus_dir)
 	segment_files = glob.glob(segment_dir+'*.txt')
+	segment_files = [f for f in segment_files if fn(f) in original_files]
+
 	for segment_path in sorted(segment_files):
 	
 		pitch_path = os.path.join(f0_dir,f'{fn(segment_path)}.tsv')
@@ -205,38 +216,47 @@ if __name__ == "__main__":
 	# only used for alternate interviewer segments count--
 	original_corpus = '/home/cati/proj/acode/NextCloud/Data/'
 	
-	# praat pitch algorithm
-	# ac - autocorrelation
-	# cc - crosscorrelation
-	ppa = 'ac'
 	
 	# selected diarisation method
 	# cfa_ldc: gold transcripts aligned by ctc-forced-aligner 
 	#            to identify when each person is speaking
 	#          and merged with ldc speech activity detection
-	# cfa : just ctc-forced-aligner times - don't use this
-	#       it undersegments so badly that some speakers have 0 pauses
+	#            to filter whether speech is really taking place
+	# cfa : just ctc-forced-aligner times
 	# pya : pyannote automatic segmentation and diarisation
 	# pya_ldc:  ldc speech segmentation with pyannote speaker labels
-	dia = 'ldc'
+	# cfa_pya: like cfa_ldc except with pyannote vad in place of ldc
+	#            - doesnt use the speaker labels from pyannote
+	for dia in ['cfa','cfa_ldc', 'pya', 'pya_ldc', 'cfa_pya']:
 	
-	# diarisation dir, see acode_align.py
-	# 4 column tsv ELAN transcript
-	# Speaker_id, Start_time, End_time, Text
-	# speaker_ids in {S, V, X},
-	# V_iðmælandi is data analysed, X is ignored nonspeech/annotation
-	segmentation_dir = f'{acoustic_data_dir}diarised/{dia}/'
+		# praat pitch algorithm
+		# ac - autocorrelation
+		# cc - crosscorrelation
+		for ppa in ('ac', 'cc'):
 	
-	# pitch tracking, see extract_acoustic.py
-	pitch_dir = f'{acoustic_data_dir}feats/voicesauce/praat/{ppa}/'
-	syllable_detect_dir = None # syllable detection not used this version
 	
+			# diarisation dir, see acode_align.py
+			# 3-4 column tsv ELAN transcript
+			# Speaker_id, Start_time, End_time, (Words)
+			# speaker_ids in {S, V, X},
+			# V_iðmælandi is data analysed, X is ignored nonspeech/annotation
+			segmentation_dir = f'{acoustic_data_dir}diarised/{dia}/'
+	
+			# pitch tracking, see extract_acoustic.py
+			pitch_dir = f'{acoustic_data_dir}feats/voicesauce/praat/{ppa}/'
+			syllable_detect_dir = None # syllable detection not used this version
+	
+			feature_output = (f'{acoustic_data_dir}/ACODE/ACOUSTIC_FEATURES'
+								f'-praat-{ppa}--{dia}.tsv')
+	
+			if not os.path.exists(feature_output):
+				acode_feature_file = compile_acode_featurisation(segmentation_dir,
+											pitch_dir,
+											original_corpus,
+											feature_output)
+											
+			
 
-	feature_output = f'{acoustic_data_dir}/ACODE/ACOUSTIC_FEATURES-praat-{ppa}--{dia}.tsv'
-	
-	
-	_ = compile_acode_featurisation(segmentation_dir,pitch_dir,original_corpus,feature_output)
-	
 
 
 
