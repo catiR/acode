@@ -107,11 +107,11 @@ def compile_nextcloud_files(
 			xf = xf.replace('CH_P-ACODE-052(3)NoDetour-trans',
 								'CH_P-ACODE-052(3)NoDetour')
 			xf = xf.replace('CH_P-ACODE-043(3)NoDetour-trans',
-								'CH_P-ACODE-052(3)NoDetour')
+								'CH_P-ACODE-043(3)NoDetour')
 			xf = xf.replace('CH_P-ACODE-050(1)NoDetour-trans',
-								'CH_P-ACODE-052(3)NoDetour')
+								'CH_P-ACODE-050(1)NoDetour')
 			xf = xf.replace('CH_P-ACODE-047(2)NoDetour-trans',
-								'CH_P-ACODE-052(3)NoDetour')
+								'CH_P-ACODE-047(2)NoDetour')
 		if not os.path.exists(xf):
 			xf = xf.replace('NoDetour','').replace('phonecallcutout','')
 		if not os.path.exists(xf):
@@ -134,7 +134,7 @@ def compile_nextcloud_files(
 					'patient',
 					pargroup('patient',wf),
 					]
-	
+			
 	return nextcloud_files
 
 
@@ -192,6 +192,12 @@ def parse_transcript(gold_file):
 			txc = re.sub(r'([\{\(])\s+',r'\1',txc)
 			txc = re.sub(r'^([#=\-–\+~"\*])\s',r'\1',txc)
 			txc = txc.replace('+´', '+ ') #one time
+		# reserving 🥭 for forced alignment, so ensure it isn't otherwise present
+		#  if somehow this is a problem,
+		#  edit either the strawberry, or the forced aligner's unique token
+		if '🥭' in txc:
+			txc = txc.replace('🥭','🍓')
+			print('WARNING: The transcript contained mango emojis, which were replaced by strawberries.')
 		while '  ' in txc:
 			txc = txc.replace('  ', ' ')
 		if txc:

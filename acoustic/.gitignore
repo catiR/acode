@@ -3,3 +3,4 @@ locals/
 tools/REAPER/
 tools/findsylls.octave
 tools/pyannote*
+**/.DS_Store

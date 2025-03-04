@@ -18,13 +18,13 @@ from acode_util import *
 # - discard most punctuation marks but keep sentence tokenisation
 # - fill in special <star> alignment token
 # set keep_guesses False to replace more unclear transcripts with <star>
-def ctc_prep_transcript(gold_file, norm_file,keep_guesses = True):
+def ctc_prep_transcript(gold_file, norm_file,star_char='🥭',keep_guesses = True):
 	orig = parse_transcript(gold_file)
 
 	def inside_replacer(span,excludes):
 		span = ''.join([c for c in span.group(0) if c not in excludes])
 		span = span.split()
-		span = ' '.join(['<star>' for word in span])
+		span = ' '.join([star_char for word in span])
 		return span
 
 	def bracket_repl(span):
@@ -37,7 +37,7 @@ def ctc_prep_transcript(gold_file, norm_file,keep_guesses = True):
 		ln = re.sub(r'\{[^}]*\}+', bracket_repl, l)
 		if not keep_guesses:
 			ln = re.sub(r'\([^)]*\)+', bracket_repl, ln)
-		ln = [re.sub(r"[-–=#~+\{\}'\[\]\(\)\*]", '', w) or '<star>'
+		ln = [re.sub(r"[-–=#~+\{\}'\[\]\(\)\*]", '', w) or star_char
 				  for w in ln.split(' ')]
 		ln = ' '.join(ln)
 		assert (len(ln.split(' ')) == len(l.split(' '))) and ('  ' not in ln)
@@ -59,6 +59,7 @@ def label_speakers_alignments(gold_file,aligns_file,cfa_save_file,
 								  lab_file=None,cfaldc_save_file=None,
 								  pya_file=None, cfapya_save_file=None):
 								  
+	aligner_skip_char='🥭'
 	orig = parse_transcript(gold_file)
 	
 
@@ -84,7 +85,7 @@ def label_speakers_alignments(gold_file,aligns_file,cfa_save_file,
 									   labelled_words[-1][2], txt])
 		else:
 			aln = aligns[0]
-			if '<star>' not in aln['text']:
+			if aligner_skip_char not in aln['text']:
 				achar = ''.join(x.lower() for x in aln['text'] if x.isalpha())
 				gchar = ''.join(x.lower() for x in txt if x.isalpha())
 				assert achar == gchar
@@ -234,25 +235,18 @@ def relabel_sd(word_times, sd_path):
 # (but install the one from https://github.com/catiR/ctc-forced-aligner)
 def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 
-	assert aln_model.lower() == 'is', ('Model spec must be is [icelandic]')
-									 #'or mul [tilingual]')
-	# dont use multilingual until uroman package fixed!
+	assert aln_model.lower() in ['is', 'mul'], ('Model spec must be is [icelandic]'
+									 'or mul [tilingual]')
 
 	###### load alignment models ######
-	language = "isl" # ISO-639-3 Language code
-	device = "cuda" if torch.cuda.is_available() else "cpu"
-	batch_size = 2 #16
-	window_length=30
-	merge_threshold = 0.0 # minimum silence duration 150 ms in theory,
-	                      #but even at 0 it rarely finds pauses
 
 	if aln_model == 'is':
 		model_path = ("language-and-voice-lab/"
 						  "wav2vec2-large-xlsr-53-icelandic-ep30-967h")
 		romanize = False
 		attention_implementation = 'pad'
-		context_length = 0.20
 		# this model doesnt return attention mask, so pad input only
+		context_length = 0.20
 
 	elif aln_model == 'mul':
 		# this has attention and Star emit, REQUIRES romanize=True
@@ -261,11 +255,23 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 		context_length = 2.0
 		attention_implementation = None #not actually none, uses a default
 
+	
+	language = "isl" # ISO-639-3 Language code
+	device = "cuda" if torch.cuda.is_available() else "cpu"
+	batch_size = 2 #16
+	window_length=30
+	merge_threshold = 0.0 # minimum silence duration 150 ms in theory,
+	                      #but even at 0 it rarely finds pauses
+	star_char = '🥭' # reserved character, shouldn't have been used in transcripts
+	star_frequency = "custom" # required for acode!!
+
 	alignment_model, alignment_tokenizer = load_alignment_model(
 		device,
+		model_path = model_path,
 		dtype=torch.float16 if device == "cuda" else torch.float32,
 		attn_implementation = attention_implementation,
 		)
+	
 
 	
 	for fid, finfo in data_files.items():
@@ -284,7 +290,7 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 		# - normalised trancript
 		# - 16khz mono wav (shouldnt actually be necessary 
 		#     but it probably already exists anyway)
-		source_normed_path = os.path.join(save_dir,'align',f'{fid}.cfanorm')
+		source_normed_path = os.path.join(save_dir,f'align{save_spec}',f'{fid}.cfanorm')
 		tmp_wav = os.path.join(save_dir,'tmp',f'{fid}.wav')
 		
 		# outputs
@@ -297,7 +303,7 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 		# - timed diarised transcript using pyannote to know when is speech,
 		#     but still labels speaker identity through cfa alignments
 		#     ( = ignores pyannote's diarisation)
-		alignment_json_path = os.path.join(save_dir,'align',f'{fid}.json')
+		alignment_json_path = os.path.join(save_dir,f'align{save_spec}',f'{fid}.json')
 		cfa_dia_path = os.path.join(save_dir,'diarised',
 								f'cfa{save_spec}',f'{fid}.txt')
 		cfaldc_dia_path = os.path.join(save_dir,'diarised',
@@ -323,7 +329,8 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 
 			tokens_starred, text_starred = preprocess_text(xcp,
 				romanize=romanize, language=language,
-				star_frequency="custom")
+				star_frequency=star_frequency, star_char = star_char)
+
 
 			audio_waveform = load_audio(tmp_wav,
 							alignment_model.dtype, alignment_model.device)
@@ -333,9 +340,10 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 				context_length=context_length, batch_size=batch_size)
 
 			segments, scores, blank_token = get_alignments(emissions,
-				tokens_starred, alignment_tokenizer)
+				tokens_starred, alignment_tokenizer, star_char = star_char)
 
-			spans = get_spans(tokens_starred, segments, blank_token)
+			spans = get_spans(tokens_starred, segments, blank_token,
+								  star_char = star_char)
 			
 			timestamps = postprocess_results(text_starred, spans, stride,
 								scores, merge_threshold = merge_threshold)
@@ -357,11 +365,10 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 
 if __name__ == "__main__":
 	
-	original_data_dir = '/home/cati/proj/acode/NextCloud/Data/'
+	original_data_dir = '../../NextCloud/Data/'
 	save_dir = f'../../acoustic-processing/output-is020/'
 	
 	data_files = compile_nextcloud_files(original_data_dir)
 
-	align_acode(data_files, save_dir)
-	
+	align_acode(data_files, save_dir, aln_model = 'is')
 	
