@@ -20,6 +20,12 @@ def read_voicesauce_pitch(pitch_file):
 	f0 = [(float(t)/1000, float(f)) for t,f in f0 if f.lower() != 'nan']
 	return f0
 
+def read_reaper_pitch(pitch_file):
+	with open(pitch_file, 'r') as handle:
+		f0 = handle.read()
+		f0 = get_reaper(f0)
+		f0 = [(t,f) for t,f,v in f0 if v == 1]
+		return f0
 
 
 # gather one speaker's speech + pauses 
@@ -101,10 +107,9 @@ def pitch_data(pitches,speeches):
 
 
 
-def featurise_session(segment_file, pitch_file):
+def featurise_session(segment_file, pitch_file, transcript_file):
 
 	segments = read_diarisation(segment_file)
-
 	speeches, pauses = compile_speaker_segments(segments)
 	
 	# meanSpch	mean speech segment duration in seconds
@@ -128,8 +133,10 @@ def featurise_session(segment_file, pitch_file):
 	# Percentage of time spent speaking vs. pausing; 100-percent_spch = %Pause	
 	percent_spch = 100*totalSpch/total_time
 	
-	
-	pitch_track = read_voicesauce_pitch(pitch_file)
+	if 'voicesauce' in pitch_file:
+		pitch_track = read_voicesauce_pitch(pitch_file)
+	else:
+		pitch_track = read_reaper_pitch(pitch_file)
 	
 	# f0med	MEDIAN f0 Range (50th percentile) in semitones
 	#     --> f0_st[50]				
@@ -138,11 +145,34 @@ def featurise_session(segment_file, pitch_file):
 	f0_10_hz, f0_st = pitch_data(pitch_track, speeches)
 	
 	
-	# InterviewerNumSegments COUNT of interviewer speech segments, number of interviewer prompts
+	# InterviewerNum	COUNT of interviewer speech segments, number of interviewer prompts
+	# InterviewerNumSegments - version counts diarised audio segments
+	# InterviewerNumTurns - version counts transcribed turns from original transcript text
 	iv_speeches, _ = compile_speaker_segments(segments, main_speaker = 'S')
-	interviewerNum = len(iv_speeches)
-	# interviewerNumTurns also in output
-	# based on counting turns in text transcription
+	interviewerNumSegments = len(iv_speeches)
+
+	transcript = parse_transcript(transcript_file)
+	interviewerNumTurns = len([l for l in transcript if l[0]=='S'])
+	
+	
+	# - - - possible extra features - - - 
+	
+	# ParticipantNumSegments, ParticipantNumTurns : like the Interviewer features
+	participantNumSegments = len(speeches)
+	participantNumTurns = len([l for l in transcript if l[0]=='V'])
+	
+	# {Interviewer,Participant}SegPerMin, TurnPerMin : utterance rate,
+	#  (interviewer or participant) number of (diarised segments or transcribed turns) 
+	#  per minute of wall clock time in the conversation
+	cstart = min(speeches[0].start,iv_speeches[0].start) if iv_speeches else speeches[0].start
+	cend = max(speeches[-1].end, iv_speeches[-1].end) if iv_speeches else speeches[-1].end
+	walltime = cend - cstart
+	interviewerSegPerMin = interviewerNumSegments/walltime*60
+	interviewerTurnPerMin = interviewerNumTurns/walltime*60
+	participantSegPerMin = participantNumSegments/walltime*60
+	participantTurnPerMin = participantNumTurns/walltime*60
+	
+	# alternatives: rate of 1 speaker's utterances per minute of total speech in conversation
 	
 	
 	acodes = {'meanSpch': meanSpch, 
@@ -152,7 +182,15 @@ def featurise_session(segment_file, pitch_file):
 				'total_time': total_time,
 				'percent_spch': percent_spch,
 				'f0_10_hz': f0_10_hz,
-				'interviewerNumSegments':interviewerNum}
+				'interviewerNumSegments': interviewerNumSegments,
+				'interviewerNumTurns': interviewerNumTurns,
+				'interviewerSegPerMin': interviewerSegPerMin,
+				'interviewerTurnPerMin': interviewerTurnPerMin,
+				'participantNumSegments': participantNumSegments,
+				'participantNumTurns': participantNumTurns,
+				'participantSegPerMin': participantSegPerMin,
+				'participantTurnPerMin': participantTurnPerMin,
+				}
 				
 	for p,st in f0_st.items():
 		acodes[f'f0_{p}_st'] = st
@@ -169,6 +207,9 @@ def compile_acode_featurisation(segment_dir,f0_dir,original_corpus_dir,save_file
 						'meanSpch', 'meanPause', 'pause_rate',
 						'totalSpch','total_time','percent_spch',
 						'interviewerNumSegments', 'interviewerNumTurns',
+						'interviewerSegPerMin', 'interviewerTurnPerMin',
+						'participantNumSegments', 'participantNumTurns',
+						'participantSegPerMin', 'participantTurnPerMin',
 						'f0_10_hz']
 						
 	for p in range(10,100,10):
@@ -181,23 +222,22 @@ def compile_acode_featurisation(segment_dir,f0_dir,original_corpus_dir,save_file
 	original_files = compile_nextcloud_files(original_corpus_dir)
 	segment_files = glob.glob(segment_dir+'*.txt')
 	segment_files = [f for f in segment_files if fn(f) in original_files]
+	
 
 	for segment_path in sorted(segment_files):
 	
-		pitch_path = os.path.join(f0_dir,f'{fn(segment_path)}.tsv')
+		if 'reaper' in f0_dir:
+			pitch_path = os.path.join(f0_dir,f'{fn(segment_path)}.f0')
+		else:
+			pitch_path = os.path.join(f0_dir,f'{fn(segment_path)}.tsv')
 		
-		acode_features = featurise_session(segment_path, pitch_path)
+		transcript_path = original_files[fn(segment_path)][1]
+		
+		acode_features = featurise_session(segment_path, pitch_path, transcript_path)
 		
 		acode_features['record_id'] = fn(segment_path)
 		acode_features['group'] = original_files[fn(segment_path)][2]
 		acode_features['cohort'] = original_files[fn(segment_path)][3]
-		
-		# alternate version of InterviewerNum 
-		# COUNT of interviewer speech segments, number of interviewer prompts
-		# this version based on transcribed turns
-		transcript = original_files[fn(segment_path)][1]
-		transcript = parse_transcript(transcript)
-		acode_features['interviewerNumTurns'] = len([l for l in transcript if l[0]=='S'])
 		
 		output_row = [acode_features[variable] for variable in output_columns[:3]]
 		output_row += [str(round(acode_features[variable],4)) for variable in output_columns[3:]]
@@ -229,11 +269,12 @@ if __name__ == "__main__":
 	#            - doesnt use the speaker labels from pyannote
 	for dia in ['cfa','cfa_ldc', 'pya', 'pya_ldc', 'cfa_pya']:
 	
-		# praat pitch algorithm
-		# ac - autocorrelation
-		# cc - crosscorrelation
-		for ppa in ('ac', 'cc'):
-	
+		# pitch algorithm
+		# voicesauce/praat/ac - autocorrelation
+		# voicesauce/praat/cc - crosscorrelation
+		# reaper/nevler - reaper with simple parameters
+		# reaper/hirst - reaper with 2-pass re-estimation method
+		for pa in ['reaper/nevler', 'reaper/hirst']:
 	
 			# diarisation dir, see acode_align.py
 			# 3-4 column tsv ELAN transcript
@@ -243,11 +284,11 @@ if __name__ == "__main__":
 			segmentation_dir = f'{acoustic_data_dir}diarised/{dia}/'
 	
 			# pitch tracking, see extract_acoustic.py
-			pitch_dir = f'{acoustic_data_dir}feats/voicesauce/praat/{ppa}/'
+			pitch_dir = f'{acoustic_data_dir}feats/{pa}/'
 			syllable_detect_dir = None # syllable detection not used this version
 	
 			feature_output = (f'{acoustic_data_dir}/ACODE/ACOUSTIC_FEATURES'
-								f'-praat-{ppa}--{dia}.tsv')
+								f'-{pa.replace("/","-")}--{dia}.tsv')
 	
 			if not os.path.exists(feature_output):
 				acode_feature_file = compile_acode_featurisation(segmentation_dir,

@@ -208,6 +208,18 @@ def parse_transcript(gold_file):
 
 
 
+# - - - - - acoustic features - - - - -
+
+
+def get_reaper(reaper_output):
+	f0_data = reaper_output.split('EST_Header_End\n')[1].splitlines()
+	f0_data = [l.split(' ') for l in f0_data] 
+	f0_data = [l for l in f0_data if len(l) == 3] # the last line or 2 lines are other info, different format
+	f0_data = [ [float(t), float(f), float(v)] for t,v,f in f0_data]
+	return f0_data
+
+
+
 
 # - - - - - diarisation - - - - -
 

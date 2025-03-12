@@ -43,11 +43,11 @@ def ctc_prep_transcript(gold_file, norm_file,star_char='🥭',keep_guesses = Tru
 		assert (len(ln.split(' ')) == len(l.split(' '))) and ('  ' not in ln)
 		return ln
 
-	prep_lines = [_line_prep(t,keep_guesses).strip()
-					  for s,t in orig if s.lower() != 'x']
+	prep_lines = [star_char] + [_line_prep(t,keep_guesses).strip()
+			 for s,t in orig if s.lower() != 'x'] + [star_char]
 	
-	with open(norm_file,'w') as handle:
-		handle.write('\n'.join(prep_lines))
+	#with open(norm_file,'w') as handle:
+	#	handle.write('\n'.join(prep_lines))
 	return prep_lines
 
 
@@ -331,7 +331,6 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 				romanize=romanize, language=language,
 				star_frequency=star_frequency, star_char = star_char)
 
-
 			audio_waveform = load_audio(tmp_wav,
 							alignment_model.dtype, alignment_model.device)
 			
@@ -348,8 +347,9 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 			timestamps = postprocess_results(text_starred, spans, stride,
 								scores, merge_threshold = merge_threshold)
 
+			
 			with open(alignment_json_path, "w") as handle:
-				json.dump({"text": xcp, "segments": timestamps},
+				json.dump({"text": xcp[1:-1].strip(), "segments": timestamps[1:-1]},
 							  handle, indent=4)
 			
 			
@@ -359,8 +359,6 @@ def align_acode(data_files, save_dir, aln_model = 'is', save_spec = ''):
 			cfa_dia_path, 
 			ldc_lab_path, cfaldc_dia_path,
 			pya_dia_path, cfapya_dia_path)
-
-
 
 
 if __name__ == "__main__":
